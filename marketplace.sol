@@ -2217,6 +2217,10 @@ interface IERC20 {
     ) external returns (bool);
 }
 
+interface GriffinNft{
+    function totalSupply() external view returns(uint256 supply);
+}
+
 
  contract NFTMarket is IERC1155Receiver, IERC721Receiver,  Ownable, ReentrancyGuard{
   using Counters for Counters.Counter; 
@@ -2249,6 +2253,13 @@ interface IERC20 {
     bool sold;
     bool isActive;
     bool is721;
+  }
+
+  struct NftRecord{
+      address user;
+      uint256 id;
+      uint256 quantity;
+      
   }
 
   mapping(uint256 => MarketItem) public idToMarketItem;
@@ -2300,11 +2311,11 @@ interface IERC20 {
 
     require(price > 0, "Price must be at least 1 wei");
      if(is721Nft){
-       address tokenOwner = IERC721(nftAddress721).ownerOf(tokenId);
-     require(msg.sender == IERC721(nftAddress721).getApproved(tokenId) || msg.sender == tokenOwner,
+      require(IERC721(nftAddress721).isApprovedForAll(msg.sender, address(this)),
      "Caller must be approved or owner for token id");
-
+     require(IERC721(nftAddress721).ownerOf(tokenId)== msg.sender,"Only owner can sell");
      }
+     
      else{
      require(IERC1155(nftAddress1155).isApprovedForAll(msg.sender, address(this)),
      "Caller must be approved or owner for token id");
@@ -2358,12 +2369,12 @@ interface IERC20 {
     IERC20(tokenAddress).transferFrom(msg.sender, treasury, amountToadmin);
     IERC20(tokenAddress).transferFrom(msg.sender, _seller,remainingAmount);
     if(idToMarketItem[itemId].is721){
-    IERC721(nftAddress721).approve(0x0000000000000000000000000000000000000000,idToMarketItem[itemId].tokenId);
-    IERC721(nftAddress721).safeTransferFrom(address(this), msg.sender, tokenId);
+
+    IERC721(nftAddress721).safeTransferFrom(_seller, msg.sender, tokenId);
 
     }
     else{
-    IERC1155(nftAddress1155).safeTransferFrom(address(this), msg.sender, tokenId,1,"");
+    IERC1155(nftAddress1155).safeTransferFrom(_seller, msg.sender, tokenId,1,"");
     }
     idToMarketItem[itemId].owner = payable(msg.sender);
     idToMarketItem[itemId].sold = true;
@@ -2379,6 +2390,14 @@ interface IERC20 {
     false
      );
     
+  }
+
+  function changeAddress(address _nftContract721, address _nftContract1155, address token, address _treasury) external onlyOwner{
+      
+  nftAddress721 = _nftContract721;   
+  nftAddress1155 = _nftContract1155;
+  tokenAddress = token;
+  treasury = payable(_treasury);
   }
 
   function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
@@ -2513,6 +2532,56 @@ interface IERC20 {
       if (idToMarketItem[i+(1)].is721 == false) {
         uint currentId = i+(1);
         MarketItem storage currentItem = idToMarketItem[currentId];
+        items[currentIndex] = currentItem;
+        currentIndex = currentIndex+(1) ;
+      }
+    }
+    return items;
+  }
+
+  function get1155NftOfUser(address user) external view returns(NftRecord[] memory nfts){
+     uint totalItemCount = GriffinNft(nftAddress1155).totalSupply();
+    uint itemCount = 0;
+    uint currentIndex = 0;
+
+    for (uint i = 1; i <= totalItemCount; i++) {
+      if (IERC1155(nftAddress1155).balanceOf(user,i)>0) {
+        itemCount = itemCount+(1);
+      }
+    }
+    NftRecord[] memory items = new NftRecord[](itemCount);
+    for (uint i = 1; i <= totalItemCount; i++) {
+      if (IERC1155(nftAddress1155).balanceOf(user,i)>0) {  
+        NftRecord memory currentItem = NftRecord({
+            user: user,
+            id:i,
+            quantity:IERC1155(nftAddress1155).balanceOf(user,i)
+        });
+        items[currentIndex] = currentItem;
+        currentIndex = currentIndex+(1) ;
+      }
+    }
+    return items;
+  }
+
+  function get721NftOfUser(address user) external view returns(NftRecord[] memory nfts){
+    uint totalItemCount = GriffinNft(nftAddress721).totalSupply();
+    uint itemCount = 0;
+    uint currentIndex = 0;
+
+    for (uint i = 1; i <= totalItemCount; i++) {
+      if (IERC721(nftAddress721).ownerOf(i)== user) {
+        itemCount = itemCount+(1);
+      }
+    }
+    NftRecord[] memory items = new NftRecord[](itemCount);
+    for (uint i = 1; i <= totalItemCount; i++) {
+      if (IERC721(nftAddress721).ownerOf(i)== user) {  
+        NftRecord memory currentItem = NftRecord({
+            user: user,
+            id:i,
+            quantity:0
+        });
         items[currentIndex] = currentItem;
         currentIndex = currentIndex+(1) ;
       }
