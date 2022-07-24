@@ -30,17 +30,23 @@ contract GriffinLand1155Test is ERC1155, Ownable {
   string public symbol;
 
   mapping(uint => string) public tokenURI;
+  mapping(uint256 => bool) public burnable;
 
   constructor() ERC1155("") {
     name = "GriffinLand1155";
     symbol = "GL1155";
   }
 
-  function mint(address _to, uint _id, uint _amount) external onlyOwner {
+  function mint(address _to, uint _id, uint _amount, bool isBurnable) external onlyOwner {
+    burnable[_id] = isBurnable;
     _mint(_to, _id, _amount, "");
   }
 
-  function mintBatch(address _to, uint[] memory _ids, uint[] memory _amounts) external onlyOwner {
+  function mintBatch(address _to, uint[] memory _ids, uint[] memory _amounts, bool[] memory isBurnable) 
+  external onlyOwner {
+    for(uint256 i =0; i< isBurnable.length;i++){
+        burnable[_ids[i]] = isBurnable[i];
+    }
     _mintBatch(_to, _ids, _amounts, "");
   }
 
@@ -52,8 +58,12 @@ contract GriffinLand1155Test is ERC1155, Ownable {
     _burnBatch(msg.sender, _ids, _amounts);
   }
 
-  function burnForMint(address _from, uint[] memory _burnIds, uint[] memory _burnAmounts, uint[] memory _mintIds, uint[] memory _mintAmounts) external onlyOwner {
+  function burnForMint(address _from, uint[] memory _burnIds, uint[] memory _burnAmounts,
+  uint[] memory _mintIds, uint[] memory _mintAmounts, bool[] memory isBurnable) external onlyOwner {
     _burnBatch(_from, _burnIds, _burnAmounts);
+    for(uint256 i =0; i< isBurnable.length;i++){
+        burnable[_mintIds[i]] = isBurnable[i];
+    }
     _mintBatch(_from, _mintIds, _mintAmounts, "");
   }
 
