@@ -2221,12 +2221,21 @@ interface GriffinNft{
     function totalSupply() external view returns(uint256 supply);
 }
 
+interface Griffin1155{
+    function burnable(uint256 id) external view returns(bool);
+    function burn(uint _id, uint _amount) external;
+}
+
 
  contract NFTMarket is IERC1155Receiver, IERC721Receiver,  Ownable, ReentrancyGuard{
   using Counters for Counters.Counter; 
   Counters.Counter private _itemIds;     //count of sale items
   Counters.Counter private _itemsSold;  //count of sold items
   Counters.Counter private _itemsinActive;
+
+  mapping(string => mapping(uint256 => bool)) public idToSale;
+  mapping(address => uint256[]) public tokensBurnt;
+  Burnt[] public burnt;
 
   address payable treasury;            // to transfer listingPrice
   address payable _seller;
@@ -2260,6 +2269,12 @@ interface GriffinNft{
       uint256 id;
       uint256 quantity;
       
+  }
+
+  struct Burnt{
+      address user;
+      uint256 id;
+      uint256 itemId;
   }
 
   mapping(uint256 => MarketItem) public idToMarketItem;
@@ -2310,16 +2325,20 @@ interface GriffinNft{
   ) external  nonReentrant {
 
     require(price > 0, "Price must be at least 1 wei");
+    uint256 item = getTokenToItem(tokenId, is721Nft);
+    require(item == 0, "Item already on Sale");
      if(is721Nft){
       require(IERC721(nftAddress721).isApprovedForAll(msg.sender, address(this)),
      "Caller must be approved or owner for token id");
      require(IERC721(nftAddress721).ownerOf(tokenId)== msg.sender,"Only owner can sell");
+     
      }
      
      else{
      require(IERC1155(nftAddress1155).isApprovedForAll(msg.sender, address(this)),
      "Caller must be approved or owner for token id");
      require(IERC1155(nftAddress1155).balanceOf(msg.sender, tokenId)>0,"Balance 0");
+    
      }
     _itemIds.increment();
     uint256 itemId = _itemIds.current();
@@ -2371,10 +2390,23 @@ interface GriffinNft{
     if(idToMarketItem[itemId].is721){
 
     IERC721(nftAddress721).safeTransferFrom(_seller, msg.sender, tokenId);
-
+  
+    }
+    else{
+    if(Griffin1155(nftAddress1155).burnable(tokenId)){
+        IERC1155(nftAddress1155).safeTransferFrom(_seller, address(this), tokenId,1,""); 
+        Griffin1155(nftAddress1155).burn(tokenId,1);
+        tokensBurnt[msg.sender].push(tokenId);
+        burnt.push(Burnt({
+            user:msg.sender,
+            id:tokenId,
+            itemId:itemId
+        }));
     }
     else{
     IERC1155(nftAddress1155).safeTransferFrom(_seller, msg.sender, tokenId,1,"");
+    }
+    
     }
     idToMarketItem[itemId].owner = payable(msg.sender);
     idToMarketItem[itemId].sold = true;
@@ -2410,7 +2442,7 @@ interface GriffinNft{
 
     
   //function to end the sale
-  function editSale(uint256 itemId) external nonReentrant {
+  function endSale(uint256 itemId) external nonReentrant {
        require(itemId <= _itemIds.current(), " Enter a valid Id");
       require(msg.sender==idToMarketItem[itemId].seller && idToMarketItem[itemId].sold == false && idToMarketItem[itemId].isActive == true );
       idToMarketItem[itemId].isActive = false;
@@ -2426,7 +2458,18 @@ interface GriffinNft{
     
    }
 
-
+   function getTokenToItem(uint256 token, bool is721) public view returns(uint256 itemId){
+    uint itemCount = _itemIds.current();
+    uint256 saleId;
+    for (uint i = 0; i < itemCount; i++) {
+      if ( idToMarketItem[i+(1)].isActive ==true && idToMarketItem[i+(1)].is721 ==is721 && 
+      idToMarketItem[i+(1)].tokenId == token)
+      {
+       saleId = i+1;
+      }
+    }
+    return(saleId);
+   }
 
   /* Returns all unsold market items */
   function fetchMarketItems() public view returns (MarketItem[] memory) {
@@ -2580,13 +2623,17 @@ interface GriffinNft{
         NftRecord memory currentItem = NftRecord({
             user: user,
             id:i,
-            quantity:0
+            quantity:1
         });
         items[currentIndex] = currentItem;
         currentIndex = currentIndex+(1) ;
       }
     }
     return items;
+  }
+
+  function totalBurnt() external view returns(uint256){
+      return(burnt.length);
   }
 
    receive() external payable {}
