@@ -2224,6 +2224,7 @@ interface GriffinNft{
 interface Griffin1155{
     function burnable(uint256 id) external view returns(bool);
     function burn(uint _id, uint _amount) external;
+    function getAllTokenIds() external view returns(uint256[] memory);
 }
 
 
@@ -2325,8 +2326,6 @@ interface Griffin1155{
   ) external  nonReentrant {
 
     require(price > 0, "Price must be at least 1 wei");
-    uint256 item = getTokenToItem(tokenId, is721Nft);
-    require(item == 0, "Item already on Sale");
      if(is721Nft){
       require(IERC721(nftAddress721).isApprovedForAll(msg.sender, address(this)),
      "Caller must be approved or owner for token id");
@@ -2458,6 +2457,10 @@ interface Griffin1155{
     
    }
 
+   function getUserBurnNts(address user) external view returns(uint256[] memory ids){
+       return(tokensBurnt[user]);
+   }
+
    function getTokenToItem(uint256 token, bool is721) public view returns(uint256 itemId){
     uint itemCount = _itemIds.current();
     uint256 saleId;
@@ -2582,23 +2585,25 @@ interface Griffin1155{
     return items;
   }
 
+
   function get1155NftOfUser(address user) external view returns(NftRecord[] memory nfts){
-     uint totalItemCount = GriffinNft(nftAddress1155).totalSupply();
+    uint totalItemCount = (Griffin1155(nftAddress1155).getAllTokenIds()).length;
+    uint256[] memory ids = (Griffin1155(nftAddress1155).getAllTokenIds());
     uint itemCount = 0;
     uint currentIndex = 0;
 
-    for (uint i = 1; i <= totalItemCount; i++) {
-      if (IERC1155(nftAddress1155).balanceOf(user,i)>0) {
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (IERC1155(nftAddress1155).balanceOf(user,ids[i])>0) {
         itemCount = itemCount+(1);
       }
     }
     NftRecord[] memory items = new NftRecord[](itemCount);
-    for (uint i = 1; i <= totalItemCount; i++) {
-      if (IERC1155(nftAddress1155).balanceOf(user,i)>0) {  
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (IERC1155(nftAddress1155).balanceOf(user,ids[i])>0) {  
         NftRecord memory currentItem = NftRecord({
             user: user,
-            id:i,
-            quantity:IERC1155(nftAddress1155).balanceOf(user,i)
+            id:ids[i],
+            quantity:IERC1155(nftAddress1155).balanceOf(user,ids[i])
         });
         items[currentIndex] = currentItem;
         currentIndex = currentIndex+(1) ;
@@ -2635,6 +2640,8 @@ interface Griffin1155{
   function totalBurnt() external view returns(uint256){
       return(burnt.length);
   }
+
+
 
    receive() external payable {}
     fallback() external payable {}
