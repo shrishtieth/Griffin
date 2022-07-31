@@ -31,6 +31,8 @@ contract GriffinLand1155Test is ERC1155, Ownable {
 
   mapping(uint => string) public tokenURI;
   mapping(uint256 => bool) public burnable;
+  uint256[] public tokenIds;
+  mapping(uint256 => bool) public added;
 
   constructor() ERC1155("") {
     name = "GriffinLand1155";
@@ -39,12 +41,20 @@ contract GriffinLand1155Test is ERC1155, Ownable {
 
   function mint(address _to, uint _id, uint _amount, bool isBurnable) external onlyOwner {
     burnable[_id] = isBurnable;
+    if(added[_id] == false){
+      tokenIds.push(_id);
+      added[_id] = true;
+    }
     _mint(_to, _id, _amount, "");
   }
 
   function mintBatch(address _to, uint[] memory _ids, uint[] memory _amounts, bool[] memory isBurnable) 
   external onlyOwner {
     for(uint256 i =0; i< isBurnable.length;i++){
+      if(added[_ids[i]] == false){
+      tokenIds.push(_ids[i]);
+      added[_ids[i]] = true;
+    }
         burnable[_ids[i]] = isBurnable[i];
     }
     _mintBatch(_to, _ids, _amounts, "");
@@ -62,6 +72,10 @@ contract GriffinLand1155Test is ERC1155, Ownable {
   uint[] memory _mintIds, uint[] memory _mintAmounts, bool[] memory isBurnable) external onlyOwner {
     _burnBatch(_from, _burnIds, _burnAmounts);
     for(uint256 i =0; i< isBurnable.length;i++){
+        if(added[_mintIds[i]] == false){
+         tokenIds.push(_mintIds[i]);
+        added[_mintIds[i]] = true;
+        }
         burnable[_mintIds[i]] = isBurnable[i];
     }
     _mintBatch(_from, _mintIds, _mintAmounts, "");
@@ -74,6 +88,10 @@ contract GriffinLand1155Test is ERC1155, Ownable {
 
   function uri(uint _id) public override view returns (string memory) {
     return tokenURI[_id];
+  }
+
+  function getAllTokenIds() external view returns(uint256[] memory){ 
+    return(tokenIds);
   }
 
 }
