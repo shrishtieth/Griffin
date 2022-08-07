@@ -2222,7 +2222,6 @@ interface GriffinNft{
 }
 
 interface Griffin1155{
-    function burnable(uint256 id) external view returns(bool);
     function burn(uint _id, uint _amount) external;
     function getAllTokenIds() external view returns(uint256[] memory);
 }
@@ -2392,7 +2391,7 @@ interface Griffin1155{
   
     }
     else{
-    if(Griffin1155(nftAddress1155).burnable(tokenId)){
+    if(tokenId == 4 || tokenId == 5){
         IERC1155(nftAddress1155).safeTransferFrom(_seller, address(this), tokenId,1,""); 
         Griffin1155(nftAddress1155).burn(tokenId,1);
         tokensBurnt[msg.sender].push(tokenId);
@@ -2402,7 +2401,7 @@ interface Griffin1155{
             itemId:itemId
         }));
     }
-    else{
+    else{ 
     IERC1155(nftAddress1155).safeTransferFrom(_seller, msg.sender, tokenId,1,"");
     }
     
